@@ -10,20 +10,20 @@ Media Server is a simple Flask web application that allows users to browse and a
 1. Clone this repository to your local machine.
 
 ```
-git clone https://github.com/your-username/media-server.git
+git clone https://github.com/sssgun/simple-web-media-server.git
 ```
 
 2. Navigate to the project directory.
 
 ```
-cd media-server
+cd simple-web-media-server
 ```
 
 3. Create a virtual environment using Miniforge (or any other Python environment manager).
 
 ```
-conda create -n media-server python=3.9
-conda activate media-server
+conda create -n py39mediaserver python=3.9
+conda activate py39mediaserver
 ```
 
 4. Install the required dependencies using pip.

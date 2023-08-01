@@ -35,5 +35,6 @@ pip install -r requirements.txt
 5. Run the Flask development server.
 
 ```
-python file_server.py
+#                      {MEDIA_PATH}   {PATH}
+python media_server.py ${HOME}/Videos 8000
 ```

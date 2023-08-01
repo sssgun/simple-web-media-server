@@ -1,5 +1,4 @@
 # simple-web-media-server
-Media Server is a lightweight web application that serves as a media server for video and image files. The application is built using Flask, a Python web framework, and allows users to access and browse media files organized in directories.
 
 ## Introduction
 

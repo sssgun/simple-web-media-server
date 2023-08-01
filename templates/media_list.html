@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Media List</title>
+</head>
+<body>
+    <h1>Media List</h1>
+    <ul>
+        {% for directory in directories %}
+        <li><a href="/media/{{ directory }}">{{ directory }}</a></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

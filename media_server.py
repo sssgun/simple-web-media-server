@@ -1,9 +1,18 @@
 import os
 import mimetypes
-from flask import Flask, send_file, render_template
+from flask import Flask, send_file, render_template, request
+from flask_paginate import Pagination
 import sys
+from math import ceil
+
+# Create a custom filter function
+def custom_endswith(value, substrings):
+    return any(value.lower().endswith(sub) for sub in substrings)
 
 app = Flask(__name__)
+
+# Add the custom filter to the Jinja2 environment
+app.jinja_env.filters['endswith'] = custom_endswith
 
 def get_media_files_by_directory(directory):
     video_files = []
@@ -19,6 +28,11 @@ def get_media_files_by_directory(directory):
                 image_files.append(filename)
     return video_files + image_files
 
+def paginate_files(files, page, per_page):
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    return files[start_idx:end_idx]
+
 @app.route('/')
 def index():
     return 'Hello, this is a media server!'
@@ -31,9 +45,24 @@ def media():
 
 @app.route('/media/<directory>')
 def media_directory(directory):
-    # 특정 디렉토리에서 파일 목록을 가져옴
     files = get_media_files_by_directory(os.path.join(MEDIA_DIRECTORY, directory))
-    return render_template('media_list_directory.html', directory=directory, files=files)
+    
+    # Pagination settings
+    per_page = int(request.args.get('per_page', 50))  # Get the per_page parameter, default is 50
+    total_files = len(files)
+    total_pages = ceil(total_files / per_page)
+    page = request.args.get('page', type=int, default=1)
+    
+    # Ensure page is within valid range
+    if page < 1:
+        page = 1
+    elif page > total_pages:
+        page = total_pages
+    
+    # Paginate the files
+    files_to_display = paginate_files(files, page, per_page)
+    
+    return render_template('media_list_directory.html', directory=directory, files=files_to_display, page=page, total_pages=total_pages, per_page=per_page)
 
 def get_media_directories(directory):
     return [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]

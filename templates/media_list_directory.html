@@ -2,13 +2,41 @@
 <html>
 <head>
     <title>Media List - {{ directory }}</title>
+    <style>
+        /* Define a grid layout */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Automatically fit images in columns */
+            gap: 20px; /* Gap between images */
+        }
+    </style>
 </head>
 <body>
     <h1>Media List - {{ directory }}</h1>
-    <ul>
+    <div class="image-grid">
         {% for file in files %}
-        <li><a href="/media/{{ directory }}/{{ file }}">{{ file }}</a></li>
+        <div>
+            <a href="/media/{{ directory }}/{{ file }}">
+                {% if file|lower|endswith(['.jpg', '.png', '.jpeg']) %}
+                    <img src="/media/{{ directory }}/{{ file }}" alt="{{ file }}" height="100">
+                {% else %}
+                    {{ file }}
+                {% endif %}
+            </a>
+        </div>
         {% endfor %}
-    </ul>
+    </div>
+    
+    <div class="pagination">
+        {% if page > 1 %}
+            <a href="/media/{{ directory }}?page={{ page - 1 }}&per_page={{ per_page }}">Previous</a>
+        {% endif %}
+        
+        Page {{ page }} of {{ total_pages }}
+        
+        {% if page < total_pages %}
+            <a href="/media/{{ directory }}?page={{ page + 1 }}&per_page={{ per_page }}">Next</a>
+        {% endif %}
+    </div>
 </body>
 </html>

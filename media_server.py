@@ -80,6 +80,12 @@ def get_media_file(file_path):
     # 미디어 파일을 스트리밍 형식으로 전송
     return send_file(media_path, mimetype=mime_type, as_attachment=False)
 
+@app.route('/media_list/<directory>')
+def media_list(directory):
+    # Get a list of files in the specified directory
+    files = get_media_files_by_directory(os.path.join(MEDIA_DIRECTORY, directory))
+    return render_template('media_list_directory_simple.html', directory=directory, files=files)
+
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("Usage: python file_server.py MEDIA_DIRECTORY PORT")

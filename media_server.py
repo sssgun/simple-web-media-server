@@ -5,6 +5,31 @@ from flask_paginate import Pagination
 import sys
 from math import ceil
 
+from skimage import io
+from skimage.color import rgb2gray
+from skimage.metrics import structural_similarity as ssim
+
+from PIL import Image, ImageOps
+
+def compare_ssim(image1, image2):
+    try:
+        # Calculate SSIM
+        similarity = ssim(image1, image2, win_size=11, data_range=image2.max() - image2.min())
+        return similarity
+    except Exception as e:
+        print(f"Error occurred during SSIM comparison: {e}")
+        return 0.0  # Return 0 on error
+
+def add_border_to_media(media_path, border_color):
+    # Load the media item (image or video)
+    # Apply border to the media item
+    # Return the processed media item
+    
+    # For example, if the media is an image:
+    img = Image.open(media_path)
+    bordered_img = ImageOps.expand(img, border=5, fill=tuple(border_color))
+    return bordered_img
+
 # Create a custom filter function
 def custom_endswith(value, substrings):
     return any(value.lower().endswith(sub) for sub in substrings)
@@ -43,8 +68,15 @@ def media():
     directories = get_media_directories(MEDIA_DIRECTORY)
     return render_template('media_list.html', directories=directories)
 
+processed_images = {}
+valid_image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
+previous_image_path = None
+previous_index = 0
+
 @app.route('/media/<directory>')
 def media_directory(directory):
+    global previous_image_path, previous_index, processed_images
+
     files = get_media_files_by_directory(os.path.join(MEDIA_DIRECTORY, directory))
     
     # Pagination settings
@@ -61,8 +93,41 @@ def media_directory(directory):
     
     # Paginate the files
     files_to_display = paginate_files(files, page, per_page)
-    
-    return render_template('media_list_directory.html', directory=directory, files=files_to_display, page=page, total_pages=total_pages, per_page=per_page)
+
+    media_items_with_borders = []
+
+    for file in files_to_display:
+        media_path = os.path.join(MEDIA_DIRECTORY, directory, file)
+
+        if any(file.lower().endswith(ext) for ext in valid_image_extensions):
+            print(f"image_path={media_path}")
+            if media_path not in processed_images:
+                processed_images[media_path] = rgb2gray(io.imread(media_path))
+
+            if previous_image_path is not None:
+                previous_image = processed_images.get(previous_image_path, None)
+                current_image = processed_images.get(media_path, None)
+
+                if previous_image is not None and current_image is not None:
+                    similarity = compare_ssim(previous_image, current_image)
+                    print(f"similarity={similarity}")
+
+                    # Choose border color based on similarity
+                    border_color = "#FF0000" if similarity <= 0.6 else "#0000FF"
+
+                # Append file information and border color to the list
+                media_items_with_borders.append({'name': file, 'border_color': border_color})
+            else:
+                media_items_with_borders.append({'name': file})
+
+            previous_image_path = media_path
+        else:
+            media_items_with_borders.append({'name': file})
+            previous_image_path = None
+
+    return render_template('media_list_directory.html', directory=directory, \
+                           files=media_items_with_borders, page=page, total_pages=total_pages, \
+                           per_page=per_page)
 
 def get_media_directories(directory):
     return [name for name in os.listdir(directory) if os.path.isdir(os.path.join(directory, name))]

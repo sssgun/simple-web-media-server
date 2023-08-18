@@ -1,8 +1,17 @@
+<!-- media_list_directory.html -->
 <!DOCTYPE html>
 <html>
 <head>
     <title>Media List - {{ directory }}</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .image-with-border {
+            margin: 10px;
+            padding: 5px;
+            border-width: 3px; /* Add border width for better visibility */
+            border-style: solid; /* Add border style */
+        }
+    </style>
 </head>
 <body>
     <h1>Media List - {{ directory }}</h1>
@@ -10,13 +19,15 @@
         <div class="row">
             {% for file in files %}
             <div class="col-md-3">
-                <a href="/media/{{ directory }}/{{ file }}">
-                    {% if file|lower|endswith(['.jpg', '.png', '.jpeg']) %}
-                        <img src="/media/{{ directory }}/{{ file }}" alt="{{ file }}" class="img-thumbnail">
-                    {% else %}
-                        {{ file }}
-                    {% endif %}
-                </a>
+                <div class="image-with-border" style="border-color: {{ file['border_color']|default('#000000') }}">
+                    <a href="/media/{{ directory }}/{{ file['name'] }}">
+                        {% if file['name']|lower|endswith(['.jpg', '.png', '.jpeg']) %}
+                            <img src="/media/{{ directory }}/{{ file['name'] }}" alt="{{ file['name'] }}" class="img-thumbnail">
+                        {% else %}
+                            {{ file['name'] }}
+                        {% endif %}
+                    </a>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -27,7 +38,7 @@
             {% if page > 1 %}
                 <li class="page-item">
                     <a class="page-link" href="/media/{{ directory }}?page={{ page - 1 }}&per_page={{ per_page }}" aria-label="Previous">
-                        <span aria-hidden="true">&laquo;</span>
+                        <span aria-hidden="true">«</span>
                     </a>
                 </li>
             {% endif %}
@@ -39,7 +50,7 @@
             {% if page < total_pages %}
                 <li class="page-item">
                     <a class="page-link" href="/media/{{ directory }}?page={{ page + 1 }}&per_page={{ per_page }}" aria-label="Next">
-                        <span aria-hidden="true">&raquo;</span>
+                        <span aria-hidden="true">»</span>
                     </a>
                 </li>
             {% endif %}

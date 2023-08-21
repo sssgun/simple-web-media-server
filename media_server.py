@@ -1,6 +1,7 @@
 import os
 import mimetypes
-from flask import Flask, send_file, render_template, request
+import asyncio
+from flask import Flask, send_file, render_template, request, jsonify
 from flask_paginate import Pagination
 import sys
 from math import ceil
@@ -10,6 +11,34 @@ from skimage.color import rgb2gray
 from skimage.metrics import structural_similarity as ssim
 
 from PIL import Image, ImageOps
+import logging
+from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
+import datetime
+
+###############################################################################
+# logger
+logger = logging.getLogger("my_logger")
+logger.setLevel(logging.INFO)
+
+# Generate log file name with "output_YYMMDD.log" format
+current_date = datetime.datetime.now().strftime("%Y%m%d")
+log_file = os.path.join(os.getcwd(), f"output_{current_date}.log")
+
+# Set maximum file size to 100MB
+max_file_size_bytes = 100 * 1024 * 1024
+backup_count = 10  # Number of backup files to keep
+
+file_handler = RotatingFileHandler(log_file, maxBytes=max_file_size_bytes, backupCount=backup_count)
+stream_handler = logging.StreamHandler()
+formatter = logging.Formatter("%(asctime)s %(levelname)s %(funcName)s:%(lineno)d %(message)s")
+file_handler.setFormatter(formatter)
+stream_handler.setFormatter(formatter)
+
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
+
+###############################################################################
+# utils
 
 def compare_ssim(image1, image2):
     try:
@@ -17,8 +46,11 @@ def compare_ssim(image1, image2):
         similarity = ssim(image1, image2, win_size=11, data_range=image2.max() - image2.min())
         return similarity
     except Exception as e:
-        print(f"Error occurred during SSIM comparison: {e}")
+        logger.info(f"Error occurred during SSIM comparison: {e}")
         return 0.0  # Return 0 on error
+
+###############################################################################
+# web server
 
 def add_border_to_media(media_path, border_color):
     # Load the media item (image or video)
@@ -100,7 +132,7 @@ def media_directory(directory):
         media_path = os.path.join(MEDIA_DIRECTORY, directory, file)
 
         if any(file.lower().endswith(ext) for ext in valid_image_extensions):
-            print(f"image_path={media_path}")
+            logger.info(f"image_path={media_path}")
             if media_path not in processed_images:
                 processed_images[media_path] = rgb2gray(io.imread(media_path))
 
@@ -110,13 +142,13 @@ def media_directory(directory):
 
                 if previous_image is not None and current_image is not None:
                     similarity = compare_ssim(previous_image, current_image)
-                    print(f"similarity={similarity}")
+                    logger.info(f"similarity={similarity}")
 
                     # Choose border color based on similarity
                     border_color = "#FF0000" if similarity <= 0.6 else "#0000FF"
 
                 # Append file information and border color to the list
-                media_items_with_borders.append({'name': file, 'border_color': border_color})
+                media_items_with_borders.append({'name': file, 'border_color': border_color, 'similarity': f"Similarity: {similarity:.2f}"})
             else:
                 media_items_with_borders.append({'name': file})
 
@@ -153,14 +185,14 @@ def media_list(directory):
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
-        print("Usage: python file_server.py MEDIA_DIRECTORY PORT")
+        logger.info("Usage: python file_server.py MEDIA_DIRECTORY PORT")
         sys.exit(1)
 
     MEDIA_DIRECTORY = sys.argv[1]
     try:
         PORT = int(sys.argv[2])
     except ValueError:
-        print("Error: Invalid port number.")
+        logger.info("Error: Invalid port number.")
         sys.exit(1)
 
     app.run(host='0.0.0.0', port=PORT)

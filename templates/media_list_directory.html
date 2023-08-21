@@ -10,6 +10,15 @@
             padding: 5px;
             border-width: 3px; /* Add border width for better visibility */
             border-style: solid; /* Add border style */
+            position: relative; /* Add relative positioning to the container */
+            display: inline-block; /* Display inline to fit the content */
+        }
+        .bottom-text {
+            font-size: 12px;
+        }
+        .image-thumbnail {
+            max-width: 100%; /* Ensure the image fits within the container */
+            height: auto; /* Maintain the aspect ratio of the image */
         }
     </style>
 </head>
@@ -22,7 +31,8 @@
                 <div class="image-with-border" style="border-color: {{ file['border_color']|default('#000000') }}">
                     <a href="/media/{{ directory }}/{{ file['name'] }}">
                         {% if file['name']|lower|endswith(['.jpg', '.png', '.jpeg']) %}
-                            <img src="/media/{{ directory }}/{{ file['name'] }}" alt="{{ file['name'] }}" class="img-thumbnail">
+                            <img src="/media/{{ directory }}/{{ file['name'] }}" alt="{{ file['name'] }}" class="image-thumbnail">
+                            <div class="bottom-text">{{file['similarity']}}</div> <!-- Updated class name here -->
                         {% else %}
                             {{ file['name'] }}
                         {% endif %}

@@ -14,6 +14,10 @@ from PIL import Image, ImageOps
 import logging
 from logging.handlers import RotatingFileHandler, TimedRotatingFileHandler
 import datetime
+import re
+
+from collections import OrderedDict
+import random
 
 ###############################################################################
 # logger
@@ -40,14 +44,42 @@ logger.addHandler(stream_handler)
 ###############################################################################
 # utils
 
+# Function to generate a short session identifier
+def generate_session_id():
+    return str(random.randint(10000000, 99999999))  # Generates an 8-digit random number
+
 def compare_ssim(image1, image2):
     try:
-        # Calculate SSIM
         similarity = ssim(image1, image2, win_size=11, data_range=image2.max() - image2.min())
         return similarity
     except Exception as e:
         logger.info(f"Error occurred during SSIM comparison: {e}")
         return 0.0  # Return 0 on error
+
+def decrement_filename(filename):
+    name, ext = filename.rsplit('.', 1)
+    parts = name.split('_')
+    if len(parts) != 2:
+        return filename
+
+    prefix = parts[0]  # The part before the underscore
+    number_str = parts[1]  # The part after the underscore
+
+    # Convert the number to an integer
+    try:
+        number = int(number_str)
+    except ValueError:
+        return filename
+
+    if number == 0:
+        return filename
+    new_number = number - 1
+
+    # Construct the new filename with zero-padding
+    new_number_str = str(new_number).zfill(len(number_str))
+    new_filename = f"{prefix}_{new_number_str}.{ext}"
+
+    return new_filename
 
 ###############################################################################
 # web server
@@ -100,14 +132,52 @@ def media():
     directories = get_media_directories(MEDIA_DIRECTORY)
     return render_template('media_list.html', directories=directories)
 
-processed_images = {}
+processed_images = OrderedDict()
 valid_image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
 previous_image_path = None
-previous_index = 0
+
+@app.route('/calculate_similarity')
+def calculate_similarity():
+    global processed_images
+
+    # Generate a new session ID for each calculation request
+    session_id = generate_session_id()
+
+    similarity = 0.0
+    media_path = request.args.get('media_path')
+    if media_path is not None:
+        file_name = os.path.basename(media_path)
+        logger.debug(f"[{session_id}] file_name={file_name}")
+        processed_image = processed_images.get(file_name, None)
+
+        #previous_image_file = decrement_filename(file_name)
+        #logger.debug(f"get previous file: {previous_image_file} vs {file_name}")
+        #previous_processed_image = processed_images.get(previous_image_file, None)
+
+        previous_image_file = None
+        previous_processed_image = None
+        keys_list = list(processed_images.keys())
+        prev_key_index = keys_list.index(file_name) - 1
+        if prev_key_index >= 0:
+            previous_image_file = keys_list[prev_key_index]
+            previous_processed_image = processed_images[previous_image_file]
+            logger.debug(f"[{session_id}] get previous file: {previous_image_file} vs {file_name}")
+        else:
+            logger.debug(f"[{session_id}] No previously entered item before {file_name}")
+
+        if processed_image is not None and previous_processed_image is not None:
+            similarity = compare_ssim(previous_processed_image, processed_image)
+            logger.info(f"[{session_id}] compare_ssim: {similarity:.3f}, {previous_image_file} vs {file_name}")
+        else:
+            logger.info(f"[{session_id}] image: none, {previous_image_file} vs {file_name}")
+    else:
+        logger.info(f"[{session_id}] media_path: none, {media_path}")
+
+    return jsonify({'similarity': similarity})
 
 @app.route('/media/<directory>')
 def media_directory(directory):
-    global previous_image_path, previous_index, processed_images
+    global previous_image_path, processed_images
 
     files = get_media_files_by_directory(os.path.join(MEDIA_DIRECTORY, directory))
     
@@ -127,35 +197,22 @@ def media_directory(directory):
     files_to_display = paginate_files(files, page, per_page)
 
     media_items_with_borders = []
+    data_collector = OrderedDict()
 
     for file in files_to_display:
         media_path = os.path.join(MEDIA_DIRECTORY, directory, file)
+        file_name = os.path.basename(media_path)
 
         if any(file.lower().endswith(ext) for ext in valid_image_extensions):
-            logger.info(f"image_path={media_path}")
             if media_path not in processed_images:
-                processed_images[media_path] = rgb2gray(io.imread(media_path))
-
-            if previous_image_path is not None:
-                previous_image = processed_images.get(previous_image_path, None)
-                current_image = processed_images.get(media_path, None)
-
-                if previous_image is not None and current_image is not None:
-                    similarity = compare_ssim(previous_image, current_image)
-                    logger.info(f"similarity={similarity}")
-
-                    # Choose border color based on similarity
-                    border_color = "#FF0000" if similarity <= 0.6 else "#0000FF"
-
-                # Append file information and border color to the list
-                media_items_with_borders.append({'name': file, 'border_color': border_color, 'similarity': f"Similarity: {similarity:.2f}"})
-            else:
-                media_items_with_borders.append({'name': file})
-
+                logger.info(f"image_path={media_path}")
+                data_collector[file_name] = rgb2gray(io.imread(media_path))
             previous_image_path = media_path
         else:
-            media_items_with_borders.append({'name': file})
             previous_image_path = None
+        media_items_with_borders.append({'name': file})
+
+    processed_images.update(OrderedDict(sorted(data_collector.items())))
 
     return render_template('media_list_directory.html', directory=directory, \
                            files=media_items_with_borders, page=page, total_pages=total_pages, \
